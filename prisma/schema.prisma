@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  password      String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  medicines     Medicine[]
+  stockHistories StockHistory[]
+  predictions   Prediction[]
+}
+
+model Medicine {
+  id            String    @id @default(cuid())
+  name          String
+  unit          String    @default("tablet")
+  currentStock  Int       @default(0)
+  minStock      Int       @default(10)
+  maxStock      Int       @default(100)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  stockHistories StockHistory[]
+  predictions   Prediction[]
+
+  @@unique([name, userId])
+}
+
+model StockHistory {
+  id            String    @id @default(cuid())
+  medicineId    String
+  medicine      Medicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quantity      Int
+  type          String    @default("in") // in, out, adjustment
+  date          DateTime  @default(now())
+  month         Int
+  year          Int
+  notes         String?
+  createdAt     DateTime  @default(now())
+}
+
+model Prediction {
+  id            String    @id @default(cuid())
+  medicineId    String
+  medicine      Medicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method        String    // linear_regression, moving_average
+  quarter       Int       // 1, 2, 3, 4
+  year          Int
+  predictedValue Float
+  confidence    Float?
+  createdAt     DateTime  @default(now())
+}
