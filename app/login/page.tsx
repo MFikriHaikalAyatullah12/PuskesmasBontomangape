@@ -62,7 +62,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-purple-50 overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
@@ -71,55 +71,55 @@ export default function LoginPage() {
       </div>
 
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-8">
         <div className="relative z-10 max-w-lg">
           {/* Logo */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25">
-              <FiActivity className="w-8 h-8 text-white" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25">
+              <FiActivity className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800 tracking-tight">PUSKESMAS</h1>
-              <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">BONTOMANGAPE</p>
+              <h1 className="text-xl font-bold text-gray-800 tracking-tight">PUSKESMAS</h1>
+              <p className="text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">BONTOMANGAPE</p>
             </div>
           </div>
 
           {/* Tagline */}
-          <h2 className="text-4xl font-bold text-gray-800 leading-tight mb-4">
+          <h2 className="text-3xl font-bold text-gray-800 leading-tight mb-3">
             Sistem Prediksi<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Kebutuhan Obat</span>
           </h2>
-          <p className="text-gray-500 text-lg mb-10 leading-relaxed">
+          <p className="text-gray-500 text-base mb-6 leading-relaxed">
             Kelola stok obat dengan cerdas menggunakan prediksi berbasis data untuk memastikan ketersediaan obat yang optimal.
           </p>
 
           {/* Features */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
-              <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl">
-                <FiTrendingUp className="w-6 h-6 text-blue-600" />
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
+              <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-xl">
+                <FiTrendingUp className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800">Prediksi Akurat</h3>
-                <p className="text-sm text-gray-500">Algoritma ML untuk prediksi kebutuhan</p>
+                <h3 className="font-semibold text-gray-800 text-sm">Prediksi Akurat</h3>
+                <p className="text-xs text-gray-500">Algoritma ML untuk prediksi kebutuhan</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
-              <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl">
-                <FiDatabase className="w-6 h-6 text-purple-600" />
+            <div className="flex items-center gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
+              <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-xl">
+                <FiDatabase className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800">Manajemen Data</h3>
-                <p className="text-sm text-gray-500">Import data dari file Excel dengan mudah</p>
+                <h3 className="font-semibold text-gray-800 text-sm">Manajemen Data</h3>
+                <p className="text-xs text-gray-500">Import data dari file Excel dengan mudah</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
-              <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl">
-                <FiShield className="w-6 h-6 text-green-600" />
+            <div className="flex items-center gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
+              <div className="flex items-center justify-center w-10 h-10 bg-green-100 rounded-xl">
+                <FiShield className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800">Data Terisolasi</h3>
-                <p className="text-sm text-gray-500">Setiap akun memiliki data terpisah</p>
+                <h3 className="font-semibold text-gray-800 text-sm">Data Terisolasi</h3>
+                <p className="text-xs text-gray-500">Setiap akun memiliki data terpisah</p>
               </div>
             </div>
           </div>
@@ -127,21 +127,21 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8">
         <div className="relative w-full max-w-md">
           {/* Mobile Logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25 mb-4">
-              <FiActivity className="w-8 h-8 text-white" />
+          <div className="lg:hidden text-center mb-6">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25 mb-3">
+              <FiActivity className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-gray-800">PUSKESMAS BONTOMANGAPE</h1>
+            <h1 className="text-lg font-bold text-gray-800">PUSKESMAS BONTOMANGAPE</h1>
             <p className="text-gray-500 text-sm mt-1">Sistem Prediksi Kebutuhan Obat</p>
           </div>
 
           {/* Login Card */}
-          <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl shadow-gray-200/50 p-8 sm:p-10 border border-white/80">
+          <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl shadow-gray-200/50 p-6 sm:p-8 border border-white/80">
             {/* Header */}
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-gray-800">
                 {isRegister ? 'Buat Akun' : 'Selamat Datang'}
               </h2>
@@ -150,7 +150,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {isRegister && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -164,7 +164,7 @@ export default function LoginPage() {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
+                      className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
                       placeholder="Masukkan nama lengkap"
                       required={isRegister}
                     />
@@ -184,7 +184,7 @@ export default function LoginPage() {
                     type="text"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
                     placeholder="Masukkan username"
                     required
                   />
@@ -203,7 +203,7 @@ export default function LoginPage() {
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400"
                     placeholder="Masukkan password"
                     required
                   />
@@ -213,7 +213,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl font-semibold hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 mt-2"
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 mt-2"
               >
                 {loading ? (
                   <>
@@ -229,32 +229,14 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-4 bg-white/70 text-sm text-gray-500">atau</span>
-              </div>
-            </div>
-
-            {/* Toggle Register/Login */}
-            <div className="text-center">
-              <p className="text-gray-500 text-sm">
-                {isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'}
-              </p>
-              <button
-                onClick={() => setIsRegister(!isRegister)}
-                className="mt-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
-              >
-                {isRegister ? 'Masuk di sini' : 'Daftar sekarang'}
-              </button>
+            {/* Address */}
+            <div className="text-center mt-4">
+              <p className="text-sm text-gray-500">Bontorita, Desa Bontomangape, Kec. Galesong</p>
             </div>
           </div>
 
           {/* Footer */}
-          <p className="text-center text-gray-400 text-sm mt-8">
+          <p className="text-center text-gray-400 text-sm mt-4">
             © 2026 PUSKESMAS BONTOMANGAPE
           </p>
         </div>

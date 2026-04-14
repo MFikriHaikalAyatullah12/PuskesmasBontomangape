@@ -38,6 +38,7 @@ export default function Sidebar({ notifications }: SidebarProps) {
   const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   const totalNotifications = notifications.warning + notifications.danger
 
@@ -84,59 +85,76 @@ export default function Sidebar({ notifications }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 transform transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 transform transition-transform duration-300 h-screen ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full overflow-hidden">
           {/* Logo */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="px-4 py-4 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <FiActivity className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <FiActivity className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-gray-800 text-lg">PUSKESMAS</h1>
+                <h1 className="font-bold text-gray-800 text-base">PUSKESMAS</h1>
                 <p className="text-xs text-gray-500">BONTOMANGAPE</p>
               </div>
             </div>
           </div>
 
           {/* User Info */}
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                <FiUser className="w-5 h-5 text-white" />
+          <div className="px-4 py-3 border-b border-gray-100 relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="w-full flex items-center gap-2 p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+            >
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                <FiUser className="w-4 h-4 text-white" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-800 truncate">
+              <div className="flex-1 min-w-0 text-left">
+                <p className="font-medium text-gray-800 text-sm truncate">
                   {(session?.user as any)?.name || (session?.user as any)?.username || 'User'}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
                   @{(session?.user as any)?.username || 'user'}
                 </p>
               </div>
-            </div>
+              <FiChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-90' : ''}`} />
+            </button>
+            
+            {/* User Dropdown Menu */}
+            {showUserMenu && (
+              <div className="mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                <button
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <FiLogOut className="w-5 h-5" />
+                  <span className="font-medium">Keluar</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Notification Summary */}
-          <div className="p-4 border-b border-gray-100">
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl">
-              <div className="flex items-center gap-2 mb-3">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
                 <FiBell className="w-4 h-4 text-blue-600" />
                 <span className="text-sm font-medium text-gray-700">Status Stok Obat</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div className="text-center p-2 bg-green-100 rounded-lg">
-                  <p className="text-lg font-bold text-green-600">{notifications.safe}</p>
+                <div className="text-center py-1.5 bg-green-100 rounded-lg">
+                  <p className="text-base font-bold text-green-600">{notifications.safe}</p>
                   <p className="text-xs text-green-600">Aman</p>
                 </div>
-                <div className="text-center p-2 bg-yellow-100 rounded-lg">
-                  <p className="text-lg font-bold text-yellow-600">{notifications.warning}</p>
+                <div className="text-center py-1.5 bg-yellow-100 rounded-lg">
+                  <p className="text-base font-bold text-yellow-600">{notifications.warning}</p>
                   <p className="text-xs text-yellow-600">Cek Ulang</p>
                 </div>
-                <div className="text-center p-2 bg-red-100 rounded-lg">
-                  <p className="text-lg font-bold text-red-600">{notifications.danger}</p>
+                <div className="text-center py-1.5 bg-red-100 rounded-lg">
+                  <p className="text-base font-bold text-red-600">{notifications.danger}</p>
                   <p className="text-xs text-red-600">Tambah</p>
                 </div>
               </div>
@@ -144,7 +162,7 @@ export default function Sidebar({ notifications }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-4 py-3 space-y-1.5">
             {menuItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -168,17 +186,6 @@ export default function Sidebar({ notifications }: SidebarProps) {
               )
             })}
           </nav>
-
-          {/* Logout Button */}
-          <div className="p-4 border-t border-gray-200">
-            <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-all duration-200"
-            >
-              <FiLogOut className="w-5 h-5" />
-              <span className="font-medium">Keluar</span>
-            </button>
-          </div>
         </div>
       </aside>
 

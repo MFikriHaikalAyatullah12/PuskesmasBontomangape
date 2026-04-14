@@ -397,7 +397,12 @@ export default function DashboardPage() {
 
       {/* Medicine List */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Daftar Obat</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Daftar Obat</h2>
+          {medicines.length > 10 && (
+            <span className="text-sm text-gray-500">Menampilkan 10 dari {medicines.length} obat</span>
+          )}
+        </div>
         {medicines.length === 0 ? (
           <div className="text-center py-12">
             <FiPackage className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -418,7 +423,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {medicines.map((medicine) => (
+                {medicines.slice(0, 10).map((medicine) => (
                   <tr key={medicine.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="py-3 px-4 font-medium text-gray-800">{medicine.name}</td>
                     <td className="py-3 px-4 text-gray-600">{medicine.currentStock}</td>
