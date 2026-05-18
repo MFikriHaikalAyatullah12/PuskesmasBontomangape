@@ -34,6 +34,17 @@ async function main() {
   })
   console.log('Created user 2:', user2.username)
 
+  // Create Account 3 - Admin Puskesmas Lutra
+  const password3 = await hash('puskemaslutra', 12)
+  const user3 = await prisma.user.create({
+    data: {
+      username: 'admin puskesmas',
+      password: password3,
+      name: 'Admin Puskesmas Lutra'
+    }
+  })
+  console.log('Created user 3:', user3.username)
+
   console.log('Seeding completed!')
   console.log('')
   console.log('=== AKUN LOGIN PUSKESMAS ===')
@@ -45,6 +56,10 @@ async function main() {
   console.log('Akun 2:')
   console.log('  Username: adminpuskesmas')
   console.log('  Password: klinikbontorita')
+  console.log('')
+  console.log('Akun 3:')
+  console.log('  Username: admin puskesmas')
+  console.log('  Password: puskemaslutra')
   console.log('')
 }
 

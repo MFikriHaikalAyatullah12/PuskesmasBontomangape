@@ -5,8 +5,9 @@ import prisma from '@/lib/prisma'
 import {
   predictLinearRegression,
   predictMovingAverage,
-  evaluateLinearRegression,
-  evaluateMovingAverage,
+  evaluateLinearRegressionWalkForward,
+  evaluateMovingAverageWalkForward,
+  selectBestPredictionModel,
   aggregateToQuarterly,
   generateFutureQuarters
 } from '@/lib/prediction'
@@ -79,12 +80,16 @@ export async function POST() {
       
       // Linear Regression (OLS): ŷ = mx + b
       const lrResult = predictLinearRegression(dataPoints, futureX)
-      const lrEvaluation = evaluateLinearRegression(dataPoints)
+      const lrEvaluation = evaluateLinearRegressionWalkForward(dataPoints)
       
       // Moving Average (Holt's Linear Trend): Fₜ₊ₖ = Lₜ + k × Tₜ
       const values = quarterlyData.map(q => q.value)
       const maResult = predictMovingAverage(values, 8, 3)
-      const maEvaluation = evaluateMovingAverage(values, 3)
+      const maEvaluation = evaluateMovingAverageWalkForward(values, 3)
+      const modelSelection = selectBestPredictionModel(lrEvaluation, maEvaluation)
+      const avgActual = Math.max(1, values.reduce((a, b) => a + b, 0) / values.length)
+      const lrConfidence = Math.max(0, Math.min(1, 1 - lrEvaluation.rmse / avgActual))
+      const maConfidence = Math.max(0, Math.min(1, 1 - maEvaluation.rmse / avgActual))
 
       // Prepare batch data
       for (let i = 0; i < futureQuarters.length; i++) {
@@ -97,7 +102,7 @@ export async function POST() {
           quarter: fq.quarter,
           year: fq.year,
           predictedValue: lrResult.predictions[i],
-          confidence: lrResult.confidence
+          confidence: lrConfidence
         })
 
         allPredictions.push({
@@ -107,13 +112,14 @@ export async function POST() {
           quarter: fq.quarter,
           year: fq.year,
           predictedValue: maResult.predictions[i],
-          confidence: maResult.trend === 'stable' ? 0.8 : 0.6
+          confidence: maConfidence
         })
       }
 
       evaluations.push({
         medicineId: medicine.id,
         medicineName: medicine.name,
+        bestModel: modelSelection.bestModel,
         linearRegression: lrEvaluation,
         movingAverage: maEvaluation
       })

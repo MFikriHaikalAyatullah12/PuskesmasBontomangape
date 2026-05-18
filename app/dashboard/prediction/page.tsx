@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,19 +13,26 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
-import { Bar, Line } from 'react-chartjs-2'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import {
   FiCpu,
   FiTrendingUp,
-  FiRefreshCw,
   FiLoader,
-  FiInfo,
   FiBarChart2,
   FiActivity,
   FiDownload
 } from 'react-icons/fi'
+
+// Dynamic imports for Chart components
+const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+})
+const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+})
 
 ChartJS.register(
   CategoryScale,
@@ -48,9 +56,14 @@ interface PredictionResult {
     year: number
     linearRegression: number
     movingAverage: number
+    linearRegressionLower: number
+    linearRegressionUpper: number
+    movingAverageLower: number
+    movingAverageUpper: number
   }[]
   linearRegressionAccuracy: number
   movingAveragetrend: 'up' | 'down' | 'stable'
+  bestModel: 'linear_regression' | 'moving_average'
   evaluation: {
     linearRegression: { mae: number; mse: number; rmse: number }
     movingAverage: { mae: number; mse: number; rmse: number }
@@ -131,6 +144,7 @@ export default function PredictionPage() {
         'Rata-rata Prediksi LR': avgLR,
         'Rata-rata Prediksi MA': avgMA,
         'Akurasi LR (%)': (pred.linearRegressionAccuracy * 100).toFixed(1),
+        'Model Terbaik': pred.bestModel === 'linear_regression' ? 'Linear Regression' : 'Moving Average',
         'LR MAE': pred.evaluation?.linearRegression?.mae ?? 0,
         'LR MSE': pred.evaluation?.linearRegression?.mse ?? 0,
         'LR RMSE': pred.evaluation?.linearRegression?.rmse ?? 0,
@@ -176,6 +190,8 @@ export default function PredictionPage() {
     XLSX.utils.book_append_sheet(wb, wsDetail, 'Detail Prediksi')
 
     // Sheet per obat - SEMUA OBAT dengan data historis + prediksi 2 tahun kedepan
+    const usedSheetNames = new Set<string>(['Ringkasan', 'Detail Prediksi'])
+    
     predictions.forEach((pred, index) => {
       const obatData: any[] = []
       
@@ -207,10 +223,19 @@ export default function PredictionPage() {
       
       if (obatData.length > 0) {
         const wsObat = XLSX.utils.json_to_sheet(obatData)
-        // Sheet name max 31 chars, replace invalid chars
-        const sheetName = pred.medicineName
+        // Sheet name max 31 chars, replace invalid chars, ensure uniqueness
+        let baseSheetName = pred.medicineName
           .replace(/[\\/*?:[\]]/g, '')
-          .slice(0, 31) || `Obat_${index + 1}`
+          .slice(0, 28) || `Obat_${index + 1}`
+        
+        let sheetName = baseSheetName
+        let counter = 1
+        while (usedSheetNames.has(sheetName)) {
+          sheetName = `${baseSheetName.slice(0, 28)}_${counter}`
+          counter++
+        }
+        usedSheetNames.add(sheetName)
+        
         XLSX.utils.book_append_sheet(wb, wsObat, sheetName)
       }
     })
@@ -398,7 +423,7 @@ export default function PredictionPage() {
           <button
             onClick={handleGeneratePredictions}
             disabled={generating}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-emerald-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-emerald-700 transition-all disabled:opacity-50"
           >
             {generating ? (
               <>
@@ -431,14 +456,14 @@ export default function PredictionPage() {
             </div>
           </div>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <FiActivity className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <FiActivity className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-purple-800">Moving Average</h3>
-              <p className="text-sm text-purple-600 mt-1">
+              <h3 className="font-semibold text-emerald-800">Moving Average</h3>
+              <p className="text-sm text-emerald-600 mt-1">
                 Metode yang menghaluskan fluktuasi data dengan menghitung rata-rata bergerak.
                 Bagus untuk mendeteksi tren jangka panjang.
               </p>
@@ -463,11 +488,11 @@ export default function PredictionPage() {
           {/* Medicine Selector */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <label className="font-medium text-gray-700">Pilih Obat:</label>
+              <label className="font-medium text-gray-700 whitespace-nowrap">Pilih Obat:</label>
               <select
                 value={selectedMedicine}
                 onChange={(e) => setSelectedMedicine(e.target.value)}
-                className="flex-1 max-w-md px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:max-w-md px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
               >
                 {predictions.map(pred => (
                   <option key={pred.medicineId} value={pred.medicineId}>
@@ -481,22 +506,22 @@ export default function PredictionPage() {
           {selectedPrediction && (
             <>
               {/* Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
                   <p className="text-sm text-gray-500">Stok Saat Ini</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-2xl font-bold text-gray-800 mt-2">
                     {selectedPrediction.currentStock}
                   </p>
                 </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
                   <p className="text-sm text-gray-500">Akurasi Linear Regression</p>
-                  <p className="text-2xl font-bold text-blue-600 mt-1">
+                  <p className="text-2xl font-bold text-blue-600 mt-2">
                     {(selectedPrediction.linearRegressionAccuracy * 100).toFixed(1)}%
                   </p>
                 </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
                   <p className="text-sm text-gray-500">Tren Moving Average</p>
-                  <p className={`text-2xl font-bold mt-1 ${
+                  <p className={`text-2xl font-bold mt-2 ${
                     selectedPrediction.movingAveragetrend === 'up' 
                       ? 'text-green-600' 
                       : selectedPrediction.movingAveragetrend === 'down'
@@ -510,40 +535,48 @@ export default function PredictionPage() {
                       : '→ Stabil'}
                   </p>
                 </div>
+                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                  <p className="text-sm text-gray-500">Model Terbaik (RMSE)</p>
+                  <p className={`text-xl font-bold mt-2 ${
+                    selectedPrediction.bestModel === 'linear_regression' ? 'text-blue-600' : 'text-emerald-600'
+                  }`}>
+                    {selectedPrediction.bestModel === 'linear_regression' ? 'Linear Regression' : 'Moving Average'}
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-100">
-                  <p className="text-sm font-semibold text-blue-700">Evaluasi Linear Regression</p>
-                  <div className="grid grid-cols-3 gap-3 mt-3 text-sm">
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="text-gray-500">MAE</p>
-                      <p className="text-lg font-bold text-blue-700">{selectedPrediction.evaluation?.linearRegression?.mae ?? 0}</p>
+                <div className="bg-white rounded-xl p-5 shadow-sm border border-blue-100">
+                  <p className="text-sm font-semibold text-blue-700 mb-3">Evaluasi Linear Regression</p>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-blue-50 rounded-lg p-3 text-center">
+                      <p className="text-gray-500 text-xs">MAE</p>
+                      <p className="text-lg font-bold text-blue-700 mt-1">{selectedPrediction.evaluation?.linearRegression?.mae ?? 0}</p>
                     </div>
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="text-gray-500">MSE</p>
-                      <p className="text-lg font-bold text-blue-700">{selectedPrediction.evaluation?.linearRegression?.mse ?? 0}</p>
+                    <div className="bg-blue-50 rounded-lg p-3 text-center">
+                      <p className="text-gray-500 text-xs">MSE</p>
+                      <p className="text-lg font-bold text-blue-700 mt-1">{selectedPrediction.evaluation?.linearRegression?.mse ?? 0}</p>
                     </div>
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <p className="text-gray-500">RMSE</p>
-                      <p className="text-lg font-bold text-blue-700">{selectedPrediction.evaluation?.linearRegression?.rmse ?? 0}</p>
+                    <div className="bg-blue-50 rounded-lg p-3 text-center">
+                      <p className="text-gray-500 text-xs">RMSE</p>
+                      <p className="text-lg font-bold text-blue-700 mt-1">{selectedPrediction.evaluation?.linearRegression?.rmse ?? 0}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
-                  <p className="text-sm font-semibold text-purple-700">Evaluasi Moving Average</p>
-                  <div className="grid grid-cols-3 gap-3 mt-3 text-sm">
-                    <div className="bg-purple-50 rounded-lg p-3">
-                      <p className="text-gray-500">MAE</p>
-                      <p className="text-lg font-bold text-purple-700">{selectedPrediction.evaluation?.movingAverage?.mae ?? 0}</p>
+                <div className="bg-white rounded-xl p-5 shadow-sm border border-emerald-100">
+                  <p className="text-sm font-semibold text-emerald-700 mb-3">Evaluasi Moving Average</p>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                      <p className="text-gray-500 text-xs">MAE</p>
+                      <p className="text-lg font-bold text-emerald-700 mt-1">{selectedPrediction.evaluation?.movingAverage?.mae ?? 0}</p>
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-3">
-                      <p className="text-gray-500">MSE</p>
-                      <p className="text-lg font-bold text-purple-700">{selectedPrediction.evaluation?.movingAverage?.mse ?? 0}</p>
+                    <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                      <p className="text-gray-500 text-xs">MSE</p>
+                      <p className="text-lg font-bold text-emerald-700 mt-1">{selectedPrediction.evaluation?.movingAverage?.mse ?? 0}</p>
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-3">
-                      <p className="text-gray-500">RMSE</p>
-                      <p className="text-lg font-bold text-purple-700">{selectedPrediction.evaluation?.movingAverage?.rmse ?? 0}</p>
+                    <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                      <p className="text-gray-500 text-xs">RMSE</p>
+                      <p className="text-lg font-bold text-emerald-700 mt-1">{selectedPrediction.evaluation?.movingAverage?.rmse ?? 0}</p>
                     </div>
                   </div>
                 </div>
@@ -565,7 +598,7 @@ export default function PredictionPage() {
               {/* Line Chart */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-3 mb-6">
-                  <FiTrendingUp className="w-6 h-6 text-purple-600" />
+                  <FiTrendingUp className="w-6 h-6 text-emerald-600" />
                   <h2 className="text-lg font-semibold text-gray-800">
                     Grafik Garis - Tren & Prediksi
                   </h2>
@@ -586,7 +619,9 @@ export default function PredictionPage() {
                       <tr className="border-b border-gray-100">
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Periode</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Linear Regression</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">CI 95% LR</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Moving Average</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">CI 95% MA</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Selisih</th>
                       </tr>
                     </thead>
@@ -597,7 +632,9 @@ export default function PredictionPage() {
                           <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50">
                             <td className="py-3 px-4 font-medium text-gray-800">{pred.label}</td>
                             <td className="py-3 px-4 text-blue-600 font-semibold">{pred.linearRegression}</td>
-                            <td className="py-3 px-4 text-purple-600 font-semibold">{pred.movingAverage}</td>
+                            <td className="py-3 px-4 text-blue-500 text-sm">{pred.linearRegressionLower} - {pred.linearRegressionUpper}</td>
+                            <td className="py-3 px-4 text-emerald-600 font-semibold">{pred.movingAverage}</td>
+                            <td className="py-3 px-4 text-emerald-500 text-sm">{pred.movingAverageLower} - {pred.movingAverageUpper}</td>
                             <td className={`py-3 px-4 font-medium ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-gray-600'}`}>
                               {diff > 0 ? '+' : ''}{diff}
                             </td>

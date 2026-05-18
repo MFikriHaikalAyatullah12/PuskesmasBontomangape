@@ -62,11 +62,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-purple-50 overflow-hidden">
+    <div className="h-screen flex bg-gradient-to-br from-blue-50 via-white to-emerald-50 overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
       </div>
 
@@ -75,19 +75,19 @@ export default function LoginPage() {
         <div className="relative z-10 max-w-lg">
           {/* Logo */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25">
+            <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-emerald-600 rounded-2xl shadow-lg shadow-blue-500/25">
               <FiActivity className="w-7 h-7 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-800 tracking-tight">UPT PUSKESMAS SUKAMAJU</h1>
-              <p className="text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">LUWU UTARA</p>
+              <p className="text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-600">LUWU UTARA</p>
             </div>
           </div>
 
           {/* Tagline */}
           <h2 className="text-3xl font-bold text-gray-800 leading-tight mb-3">
             Sistem Prediksi<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Kebutuhan Obat</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-600">Kebutuhan Obat</span>
           </h2>
           <p className="text-gray-500 text-base mb-6 leading-relaxed">
             Kelola stok obat dengan cerdas menggunakan prediksi berbasis data untuk memastikan ketersediaan obat yang optimal.
@@ -105,8 +105,8 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-white/80 shadow-sm">
-              <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-xl">
-                <FiDatabase className="w-5 h-5 text-purple-600" />
+              <div className="flex items-center justify-center w-10 h-10 bg-emerald-100 rounded-xl">
+                <FiDatabase className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800 text-sm">Manajemen Data</h3>
@@ -131,7 +131,7 @@ export default function LoginPage() {
         <div className="relative w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25 mb-3">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-emerald-600 rounded-2xl shadow-lg shadow-blue-500/25 mb-3">
               <FiActivity className="w-7 h-7 text-white" />
             </div>
             <h1 className="text-lg font-bold text-gray-800">UPT PUSKESMAS SUKAMAJU, LUWU UTARA</h1>
@@ -213,7 +213,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 mt-2"
+                className="w-full bg-gradient-to-r from-blue-500 to-emerald-600 text-white py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 mt-2"
               >
                 {loading ? (
                   <>

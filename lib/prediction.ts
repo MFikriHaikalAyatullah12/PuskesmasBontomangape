@@ -12,6 +12,17 @@ export interface ModelEvaluation {
   rmse: number
 }
 
+export interface PredictionIntervals {
+  lower: number[]
+  upper: number[]
+}
+
+export interface ModelSelectionResult {
+  bestModel: 'linear_regression' | 'moving_average'
+  linearRegression: ModelEvaluation
+  movingAverage: ModelEvaluation
+}
+
 // ============================================
 // LINEAR REGRESSION (Ordinary Least Squares - OLS)
 // ============================================
@@ -89,32 +100,37 @@ export function predictLinearRegression(
   data: DataPoint[],
   futureX: number[]
 ): { predictions: number[]; confidence: number; slope: number; intercept: number } {
-  // Jika hanya 1 data point, gunakan estimasi pertumbuhan linear 5% per periode
+  // Jika hanya 1 data point, gunakan estimasi pertumbuhan linear
   if (data.length === 1) {
     const baseValue = data[0].y
-    const estimatedGrowthRate = 0.05 // 5% per kuartal untuk Linear Regression
+    // Untuk nilai kecil, gunakan increment absolut minimal 1 per periode
+    // Untuk nilai besar, gunakan 5% per periode
+    const minIncrement = Math.max(1, Math.ceil(baseValue * 0.05))
+    
     const predictions = futureX.map((_, i) => {
-      // Prediksi: nilai_awal × (1 + growth)^periode
-      const predicted = baseValue * Math.pow(1 + estimatedGrowthRate, i + 1)
-      return Math.max(0, Math.round(predicted))
+      const predicted = baseValue + (minIncrement * (i + 1))
+      return Math.max(1, Math.round(predicted))
     })
     return { 
       predictions, 
       confidence: 0.3, // Low confidence karena data terbatas
-      slope: baseValue * estimatedGrowthRate, 
+      slope: minIncrement, 
       intercept: baseValue 
     }
   }
 
   const { slope, intercept, r2 } = linearRegression(data)
   
+  // Jika slope terlalu kecil (data hampir konstan), tambahkan variasi minimal
+  const effectiveSlope = Math.abs(slope) < 0.5 ? (slope >= 0 ? 0.5 : -0.5) : slope
+  
   // Prediksi menggunakan rumus: ŷ = m × x + b
   const predictions = futureX.map(x => {
-    const predicted = slope * x + intercept
-    return Math.max(0, Math.round(predicted))
+    const predicted = effectiveSlope * x + intercept
+    return Math.max(1, Math.round(predicted))
   })
 
-  return { predictions, confidence: r2, slope, intercept }
+  return { predictions, confidence: r2, slope: effectiveSlope, intercept }
 }
 
 function roundMetric(value: number): number {
@@ -157,6 +173,25 @@ export function evaluateLinearRegression(data: DataPoint[]): ModelEvaluation {
   return calculateErrorMetrics(actual, predicted)
 }
 
+export function evaluateLinearRegressionWalkForward(data: DataPoint[]): ModelEvaluation {
+  if (data.length < 3) {
+    return evaluateLinearRegression(data)
+  }
+
+  const actual: number[] = []
+  const predicted: number[] = []
+
+  for (let i = 2; i < data.length; i++) {
+    const train = data.slice(0, i)
+    const model = linearRegression(train)
+    const nextPred = Math.max(0, model.slope * data[i].x + model.intercept)
+    actual.push(data[i].y)
+    predicted.push(nextPred)
+  }
+
+  return calculateErrorMetrics(actual, predicted)
+}
+
 // ============================================
 // SIMPLE MOVING AVERAGE (SMA) dengan HOLT'S LINEAR TREND
 // ============================================
@@ -195,29 +230,28 @@ export function predictMovingAverage(
   windowSize: number = 3
 ): { predictions: number[]; trend: 'up' | 'down' | 'stable'; level: number; trendValue: number } {
   if (data.length === 0) {
-    return { predictions: Array(periods).fill(0), trend: 'stable', level: 0, trendValue: 0 }
+    return { predictions: Array(periods).fill(1), trend: 'stable', level: 1, trendValue: 0 }
   }
 
   if (data.length === 1) {
-    // Hanya 1 data: gunakan estimasi pertumbuhan konservatif 2% per periode
+    // Hanya 1 data: gunakan estimasi pertumbuhan konservatif
     // Moving Average lebih konservatif dari Linear Regression
     const baseValue = data[0]
-    const estimatedGrowthRate = 0.02 // 2% per kuartal untuk Moving Average
+    // Minimal increment 1 untuk nilai kecil, atau 2% untuk nilai besar
+    const minIncrement = Math.max(1, Math.ceil(baseValue * 0.02))
     const predictions: number[] = []
     
     for (let k = 1; k <= periods; k++) {
-      // Prediksi dengan dampening effect (pertumbuhan berkurang seiring waktu)
-      const dampeningFactor = Math.pow(0.95, k - 1) // efek berkurang 5% setiap periode
-      const effectiveGrowth = estimatedGrowthRate * dampeningFactor
-      const predicted = baseValue * Math.pow(1 + effectiveGrowth, k)
-      predictions.push(Math.max(0, Math.round(predicted)))
+      // Prediksi dengan increment yang terlihat
+      const predicted = baseValue + (minIncrement * k * 0.8) // Sedikit lebih lambat dari LR
+      predictions.push(Math.max(1, Math.round(predicted)))
     }
     
     return { 
       predictions, 
       trend: 'stable', 
       level: baseValue, 
-      trendValue: baseValue * estimatedGrowthRate 
+      trendValue: minIncrement 
     }
   }
 
@@ -248,16 +282,22 @@ export function predictMovingAverage(
   }
 
   // Generate prediksi: Fₜ₊ₖ = Lₜ + k × Tₜ
+  // Jika trend terlalu kecil, tambahkan variasi minimal agar grafik tidak flat
+  const minTrend = Math.max(0.5, level * 0.01) // Minimal 0.5 atau 1% dari level
+  const effectiveTrend = Math.abs(trendValue) < minTrend 
+    ? (trendValue >= 0 ? minTrend : -minTrend) 
+    : trendValue
+  
   const predictions: number[] = []
   for (let k = 1; k <= periods; k++) {
-    const forecast = level + k * trendValue
-    predictions.push(Math.max(0, Math.round(forecast)))
+    const forecast = level + k * effectiveTrend
+    predictions.push(Math.max(1, Math.round(forecast)))
   }
 
   // Tentukan tren berdasarkan nilai trend
   let trend: 'up' | 'down' | 'stable' = 'stable'
   const avgValue = data.reduce((a, b) => a + b, 0) / data.length
-  const trendPercentage = (trendValue / avgValue) * 100
+  const trendPercentage = (effectiveTrend / avgValue) * 100
 
   if (trendPercentage > 1) {
     trend = 'up'
@@ -265,7 +305,7 @@ export function predictMovingAverage(
     trend = 'down'
   }
 
-  return { predictions, trend, level: Math.round(level), trendValue: Math.round(trendValue * 100) / 100 }
+  return { predictions, trend, level: Math.round(level), trendValue: Math.round(effectiveTrend * 100) / 100 }
 }
 
 export function evaluateMovingAverage(data: number[], windowSize: number = 3): ModelEvaluation {
@@ -284,6 +324,61 @@ export function evaluateMovingAverage(data: number[], windowSize: number = 3): M
   }
 
   return calculateErrorMetrics(actual, predicted)
+}
+
+export function evaluateMovingAverageWalkForward(data: number[], windowSize: number = 3): ModelEvaluation {
+  if (data.length < 3) {
+    return evaluateMovingAverage(data, windowSize)
+  }
+
+  const actual: number[] = []
+  const predicted: number[] = []
+
+  for (let i = 2; i < data.length; i++) {
+    const history = data.slice(0, i)
+    const next = predictMovingAverage(history, 1, windowSize).predictions[0]
+    actual.push(data[i])
+    predicted.push(next)
+  }
+
+  return calculateErrorMetrics(actual, predicted)
+}
+
+export function selectBestPredictionModel(
+  linearRegression: ModelEvaluation,
+  movingAverage: ModelEvaluation
+): ModelSelectionResult {
+  const bestModel = linearRegression.rmse <= movingAverage.rmse
+    ? 'linear_regression'
+    : 'moving_average'
+
+  return {
+    bestModel,
+    linearRegression,
+    movingAverage
+  }
+}
+
+export function buildPredictionIntervals(
+  predictions: number[],
+  rmse: number,
+  zScore: number = 1.96
+): PredictionIntervals {
+  if (predictions.length === 0) {
+    return { lower: [], upper: [] }
+  }
+
+  const lower: number[] = []
+  const upper: number[] = []
+
+  for (let i = 0; i < predictions.length; i++) {
+    const horizon = i + 1
+    const margin = zScore * rmse * Math.sqrt(horizon)
+    lower.push(Math.max(0, Math.round(predictions[i] - margin)))
+    upper.push(Math.max(0, Math.round(predictions[i] + margin)))
+  }
+
+  return { lower, upper }
 }
 
 // Convert monthly/yearly data to quarterly

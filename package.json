@@ -16,7 +16,7 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.0",
+    "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.1",
     "ml-regression": "^5.0.0",

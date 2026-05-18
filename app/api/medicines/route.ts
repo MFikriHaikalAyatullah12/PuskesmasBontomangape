@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { getStockStatus } from '@/lib/prediction'
 
+function getQuarterIndex(year: number, quarter: number): number {
+  return year * 10 + quarter
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -16,15 +20,41 @@ export async function GET() {
 
     const medicines = await prisma.medicine.findMany({
       where: { userId },
+      include: {
+        predictions: {
+          orderBy: [{ year: 'asc' }, { quarter: 'asc' }]
+        }
+      },
       orderBy: { name: 'asc' }
     })
 
-    const medicinesWithStatus = medicines.map(med => ({
-      ...med,
-      status: getStockStatus(med.currentStock, med.minStock, med.maxStock)
-    }))
+    const medicinesWithStatus = medicines.map(med => {
+      let stockForStatus = med.currentStock
 
-    return NextResponse.json({ medicines: medicinesWithStatus })
+      const lrPred = med.predictions.find(p => p.method === 'linear_regression')
+      if (lrPred) {
+        const targetQuarter = getQuarterIndex(lrPred.year, lrPred.quarter)
+        const pairedMa = med.predictions.find(
+          p =>
+            p.method === 'moving_average' &&
+            getQuarterIndex(p.year, p.quarter) === targetQuarter
+        )
+
+        const predictedNeed = Math.round(
+          (lrPred.predictedValue + (pairedMa?.predictedValue ?? lrPred.predictedValue)) / 2
+        )
+        stockForStatus = med.currentStock - predictedNeed
+      }
+
+      return {
+        ...med,
+        status: getStockStatus(stockForStatus, med.minStock, med.maxStock)
+      }
+    })
+
+    const response = NextResponse.json({ medicines: medicinesWithStatus })
+    response.headers.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=30')
+    return response
   } catch (error) {
     console.error('Error fetching medicines:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

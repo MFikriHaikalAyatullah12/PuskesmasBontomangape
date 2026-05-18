@@ -1,9 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-import prisma from '@/lib/prisma'
 import Sidebar from '@/components/Sidebar'
-import { getStockStatus } from '@/lib/prediction'
 
 export default async function DashboardLayout({
   children,
@@ -16,27 +14,9 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  const userId = (session.user as any).id
-
-  // Get notification counts
-  const medicines = await prisma.medicine.findMany({
-    where: { userId }
-  })
-
-  let safe = 0
-  let warning = 0
-  let danger = 0
-
-  for (const med of medicines) {
-    const status = getStockStatus(med.currentStock, med.minStock, med.maxStock)
-    if (status.status === 'safe') safe++
-    else if (status.status === 'warning') warning++
-    else danger++
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar notifications={{ safe, warning, danger }} />
+      <Sidebar />
       <main className="lg:ml-72 pt-16 lg:pt-0">
         <div className="p-4 lg:p-8">
           {children}

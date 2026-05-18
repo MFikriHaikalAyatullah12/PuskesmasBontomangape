@@ -284,7 +284,7 @@ export default function ImportPage() {
               <button
                 onClick={handleImport}
                 disabled={loading || previewData.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-emerald-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

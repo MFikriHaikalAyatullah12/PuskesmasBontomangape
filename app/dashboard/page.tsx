@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
+import dynamic from 'next/dynamic'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,9 +14,14 @@ import {
   PointElement,
   LineElement,
 } from 'chart.js'
-import { Bar } from 'react-chartjs-2'
 import { FiPackage, FiAlertTriangle, FiAlertCircle, FiCheckCircle, FiTrendingUp, FiRefreshCw } from 'react-icons/fi'
 import toast from 'react-hot-toast'
+
+// Dynamic import for Chart component
+const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+})
 
 ChartJS.register(
   CategoryScale,
@@ -369,7 +375,7 @@ export default function DashboardPage() {
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-emerald-600 rounded-xl flex items-center justify-center">
               <FiTrendingUp className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -380,7 +386,7 @@ export default function DashboardPage() {
           <select
             value={selectedMedicine}
             onChange={(e) => setSelectedMedicine(e.target.value)}
-            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-auto sm:min-w-[200px] px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
           >
             <option value="all">Semua Obat</option>
             {predictions.map(pred => (

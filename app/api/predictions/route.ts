@@ -5,8 +5,10 @@ import prisma from '@/lib/prisma'
 import {
   predictLinearRegression,
   predictMovingAverage,
-  evaluateLinearRegression,
-  evaluateMovingAverage,
+  evaluateLinearRegressionWalkForward,
+  evaluateMovingAverageWalkForward,
+  selectBestPredictionModel,
+  buildPredictionIntervals,
   aggregateToQuarterly,
   generateFutureQuarters
 } from '@/lib/prediction'
@@ -56,8 +58,9 @@ export async function GET() {
         const values = quarterlyData.map(q => q.value)
         const { trend } = predictMovingAverage(values, 0)
         const dataPoints = quarterlyData.map((q, idx) => ({ x: idx, y: q.value }))
-        const linearRegressionEvaluation = evaluateLinearRegression(dataPoints)
-        const movingAverageEvaluation = evaluateMovingAverage(values, 3)
+        const linearRegressionEvaluation = evaluateLinearRegressionWalkForward(dataPoints)
+        const movingAverageEvaluation = evaluateMovingAverageWalkForward(values, 3)
+        const modelSelection = selectBestPredictionModel(linearRegressionEvaluation, movingAverageEvaluation)
 
         // Check if we have saved predictions
         let savedPredictions: any[] = []
@@ -94,6 +97,7 @@ export async function GET() {
           
           // Moving Average (Holt's Linear Trend) - rumus: Fₜ₊ₖ = Lₜ + k × Tₜ
           const maResult = predictMovingAverage(values, 8, 3)
+          const avgActual = Math.max(1, values.reduce((a, b) => a + b, 0) / values.length)
 
           savedPredictions = futureQuarters.map((fq, i) => ({
             label: fq.label,
@@ -103,17 +107,35 @@ export async function GET() {
             movingAverage: maResult.predictions[i]
           }))
 
-          accuracy = lrResult.confidence
+          accuracy = Math.max(0, Math.min(1, 1 - linearRegressionEvaluation.rmse / avgActual))
         }
+
+        const lrIntervals = buildPredictionIntervals(
+          savedPredictions.map(p => p.linearRegression),
+          linearRegressionEvaluation.rmse
+        )
+        const maIntervals = buildPredictionIntervals(
+          savedPredictions.map(p => p.movingAverage),
+          movingAverageEvaluation.rmse
+        )
+
+        const predictionsWithIntervals = savedPredictions.map((pred, idx) => ({
+          ...pred,
+          linearRegressionLower: lrIntervals.lower[idx],
+          linearRegressionUpper: lrIntervals.upper[idx],
+          movingAverageLower: maIntervals.lower[idx],
+          movingAverageUpper: maIntervals.upper[idx]
+        }))
 
         return {
           medicineId: medicine.id,
           medicineName: medicine.name,
           currentStock: medicine.currentStock,
           historicalData,
-          predictions: savedPredictions,
+          predictions: predictionsWithIntervals,
           linearRegressionAccuracy: accuracy,
           movingAveragetrend: trend,
+          bestModel: modelSelection.bestModel,
           evaluation: {
             linearRegression: linearRegressionEvaluation,
             movingAverage: movingAverageEvaluation
