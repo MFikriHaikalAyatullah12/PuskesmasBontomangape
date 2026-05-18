@@ -6,6 +6,12 @@ interface DataPoint {
   y: number
 }
 
+export interface ModelEvaluation {
+  mae: number
+  mse: number
+  rmse: number
+}
+
 // ============================================
 // LINEAR REGRESSION (Ordinary Least Squares - OLS)
 // ============================================
@@ -109,6 +115,46 @@ export function predictLinearRegression(
   })
 
   return { predictions, confidence: r2, slope, intercept }
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function calculateErrorMetrics(actual: number[], predicted: number[]): ModelEvaluation {
+  if (actual.length === 0 || predicted.length === 0 || actual.length !== predicted.length) {
+    return { mae: 0, mse: 0, rmse: 0 }
+  }
+
+  let maeTotal = 0
+  let mseTotal = 0
+
+  for (let i = 0; i < actual.length; i++) {
+    const error = actual[i] - predicted[i]
+    maeTotal += Math.abs(error)
+    mseTotal += error * error
+  }
+
+  const mae = maeTotal / actual.length
+  const mse = mseTotal / actual.length
+
+  return {
+    mae: roundMetric(mae),
+    mse: roundMetric(mse),
+    rmse: roundMetric(Math.sqrt(mse))
+  }
+}
+
+export function evaluateLinearRegression(data: DataPoint[]): ModelEvaluation {
+  if (data.length < 2) {
+    return { mae: 0, mse: 0, rmse: 0 }
+  }
+
+  const { slope, intercept } = linearRegression(data)
+  const actual = data.map(point => point.y)
+  const predicted = data.map(point => Math.max(0, slope * point.x + intercept))
+
+  return calculateErrorMetrics(actual, predicted)
 }
 
 // ============================================
@@ -220,6 +266,24 @@ export function predictMovingAverage(
   }
 
   return { predictions, trend, level: Math.round(level), trendValue: Math.round(trendValue * 100) / 100 }
+}
+
+export function evaluateMovingAverage(data: number[], windowSize: number = 3): ModelEvaluation {
+  if (data.length < 2) {
+    return { mae: 0, mse: 0, rmse: 0 }
+  }
+
+  const actual: number[] = []
+  const predicted: number[] = []
+
+  for (let i = 1; i < data.length; i++) {
+    const history = data.slice(0, i)
+    const next = predictMovingAverage(history, 1, windowSize).predictions[0]
+    actual.push(data[i])
+    predicted.push(next)
+  }
+
+  return calculateErrorMetrics(actual, predicted)
 }
 
 // Convert monthly/yearly data to quarterly

@@ -5,6 +5,8 @@ import prisma from '@/lib/prisma'
 import {
   predictLinearRegression,
   predictMovingAverage,
+  evaluateLinearRegression,
+  evaluateMovingAverage,
   aggregateToQuarterly,
   generateFutureQuarters
 } from '@/lib/prediction'
@@ -53,6 +55,9 @@ export async function GET() {
         // Calculate trend from historical data
         const values = quarterlyData.map(q => q.value)
         const { trend } = predictMovingAverage(values, 0)
+        const dataPoints = quarterlyData.map((q, idx) => ({ x: idx, y: q.value }))
+        const linearRegressionEvaluation = evaluateLinearRegression(dataPoints)
+        const movingAverageEvaluation = evaluateMovingAverage(values, 3)
 
         // Check if we have saved predictions
         let savedPredictions: any[] = []
@@ -79,7 +84,6 @@ export async function GET() {
           accuracy = lrPrediction?.confidence || 0.75
         } else if (quarterlyData.length >= 1) {
           // Generate predictions on-the-fly menggunakan rumus asli
-          const dataPoints = quarterlyData.map((q, idx) => ({ x: idx, y: q.value }))
           const lastQuarter = quarterlyData[quarterlyData.length - 1]
           const futureQuarters = generateFutureQuarters(lastQuarter.year, lastQuarter.quarter, 8)
           
@@ -109,7 +113,11 @@ export async function GET() {
           historicalData,
           predictions: savedPredictions,
           linearRegressionAccuracy: accuracy,
-          movingAveragetrend: trend
+          movingAveragetrend: trend,
+          evaluation: {
+            linearRegression: linearRegressionEvaluation,
+            movingAverage: movingAverageEvaluation
+          }
         }
       })
 

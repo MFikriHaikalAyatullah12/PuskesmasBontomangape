@@ -30,6 +30,19 @@ interface ImportResult {
   preview: ParsedData[]
 }
 
+async function parseApiResponse(res: Response): Promise<any> {
+  const raw = await res.text()
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -70,10 +83,14 @@ export default function ImportPage() {
         body: formData
       })
 
-      const data = await res.json()
+      const data = await parseApiResponse(res)
 
       if (!res.ok) {
-        throw new Error(data.error || 'Gagal membaca file')
+        throw new Error(data?.error || 'Gagal membaca file (respons server tidak valid)')
+      }
+
+      if (!data) {
+        throw new Error('Gagal membaca file (respons server kosong)')
       }
 
       setPreviewData(data.data || [])
@@ -116,10 +133,14 @@ export default function ImportPage() {
         body: formData
       })
 
-      const data = await res.json()
+      const data = await parseApiResponse(res)
 
       if (!res.ok) {
-        throw new Error(data.error || 'Gagal mengimport data')
+        throw new Error(data?.error || 'Gagal mengimport data (respons server tidak valid)')
+      }
+
+      if (!data) {
+        throw new Error('Gagal mengimport data (respons server kosong)')
       }
 
       setResult({

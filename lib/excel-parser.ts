@@ -23,6 +23,26 @@ const COLUMN_MAPPINGS = {
   notes: ['catatan', 'notes', 'note', 'keterangan', 'description', 'deskripsi']
 }
 
+const DEFAULT_UNIT = 'tablet'
+
+function toStringValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+function parseNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+
+  const normalized = String(value)
+    .replace(/[^0-9,.-]/g, '')
+    .replace(/\.(?=\d{3}(\D|$))/g, '')
+    .replace(',', '.')
+
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function normalizeColumnName(name: string): string {
   return name
     .toLowerCase()
@@ -40,6 +60,49 @@ function findMatchingColumn(headers: string[], targetKeys: string[]): number {
     }
   }
   return -1
+}
+
+function findHeaderRow(rawRows: any[][]): number {
+  const maxScan = Math.min(rawRows.length, 20)
+  let bestIdx = 0
+  let bestScore = -1
+
+  const allKeywords = Object.values(COLUMN_MAPPINGS).flat().map(normalizeColumnName)
+
+  for (let i = 0; i < maxScan; i++) {
+    const row = rawRows[i] || []
+    const cells = row.map(toStringValue)
+    const nonEmptyCells = cells.filter(Boolean)
+    if (nonEmptyCells.length < 2) continue
+
+    let keywordHits = 0
+    for (const cell of nonEmptyCells) {
+      const normalized = normalizeColumnName(cell)
+      if (!normalized) continue
+      if (allKeywords.some(key => normalized.includes(key) || key.includes(normalized))) {
+        keywordHits++
+      }
+    }
+
+    const nextRows = rawRows.slice(i + 1, i + 6)
+    let dataDensity = 0
+    let dataRows = 0
+    for (const nextRow of nextRows) {
+      const filled = (nextRow || []).map(toStringValue).filter(Boolean).length
+      if (filled > 0) {
+        dataDensity += filled
+        dataRows++
+      }
+    }
+
+    const score = keywordHits * 10 + nonEmptyCells.length * 2 + (dataRows > 0 ? dataDensity / dataRows : 0)
+    if (score > bestScore) {
+      bestScore = score
+      bestIdx = i
+    }
+  }
+
+  return bestIdx
 }
 
 function parseDate(value: any): { date: Date; month: number; year: number } | null {
@@ -138,6 +201,217 @@ function parseMonthName(monthStr: string): number {
   return months[monthStr.toLowerCase()] || 0
 }
 
+function parsePeriodFromHeader(header: string): { month: number; year: number } | null {
+  const text = header.toLowerCase().trim()
+  if (!text) return null
+
+  const monthMatch = Object.keys({
+    januari: 1, january: 1, jan: 1,
+    februari: 2, february: 2, feb: 2,
+    maret: 3, march: 3, mar: 3,
+    april: 4, apr: 4,
+    mei: 5, may: 5,
+    juni: 6, june: 6, jun: 6,
+    juli: 7, july: 7, jul: 7,
+    agustus: 8, august: 8, aug: 8, agu: 8,
+    september: 9, sep: 9, sept: 9,
+    oktober: 10, october: 10, oct: 10, okt: 10,
+    november: 11, nov: 11, nop: 11,
+    desember: 12, december: 12, dec: 12, des: 12
+  }).find(m => text.includes(m))
+
+  const yearMatch = text.match(/(19|20)\d{2}/)
+  if (!yearMatch) return null
+
+  let month = monthMatch ? parseMonthName(monthMatch) : 0
+  if (!month) {
+    const monthNumber = text.match(/(^|\D)(1[0-2]|0?[1-9])(\D|$)/)
+    if (monthNumber) {
+      month = parseInt(monthNumber[2], 10)
+    }
+  }
+
+  return month >= 1 && month <= 12
+    ? { month, year: parseInt(yearMatch[0], 10) }
+    : null
+}
+
+function detectNameColumn(headers: string[], rows: any[][]): number {
+  const mappedIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.name)
+  if (mappedIdx !== -1) return mappedIdx
+
+  let bestIdx = -1
+  let bestScore = -1
+
+  for (let col = 0; col < headers.length; col++) {
+    let textCount = 0
+    let uniqueText = new Set<string>()
+
+    for (let r = 0; r < Math.min(rows.length, 200); r++) {
+      const cell = toStringValue(rows[r]?.[col])
+      if (!cell) continue
+      const isMostlyText = parseNumber(cell) === null || /[a-zA-Z]/.test(cell)
+      if (isMostlyText) {
+        textCount++
+        uniqueText.add(cell.toLowerCase())
+      }
+    }
+
+    const score = textCount + uniqueText.size
+    if (score > bestScore) {
+      bestScore = score
+      bestIdx = col
+    }
+  }
+
+  return bestIdx
+}
+
+function detectNumericColumn(headers: string[], rows: any[][], excluded: Set<number>): number {
+  const mappedIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.quantity)
+  if (mappedIdx !== -1 && !excluded.has(mappedIdx)) return mappedIdx
+
+  let bestIdx = -1
+  let bestNumericCount = -1
+
+  for (let col = 0; col < headers.length; col++) {
+    if (excluded.has(col)) continue
+
+    let numericCount = 0
+    for (let r = 0; r < Math.min(rows.length, 300); r++) {
+      if (parseNumber(rows[r]?.[col]) !== null) numericCount++
+    }
+
+    if (numericCount > bestNumericCount) {
+      bestNumericCount = numericCount
+      bestIdx = col
+    }
+  }
+
+  return bestIdx
+}
+
+function parseUsageSheet(
+  sheet: XLSX.WorkSheet,
+  sheetName: string,
+  masterMap: Map<string, { category?: string; stock?: number; unit?: string }>
+): { data: ParsedMedicineData[]; headers: string[]; errors: string[] } {
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as any[][]
+  const errors: string[] = []
+  const data: ParsedMedicineData[] = []
+
+  if (rawRows.length < 2) {
+    return { data, headers: [], errors }
+  }
+
+  const headerRowIdx = findHeaderRow(rawRows)
+  const headers = (rawRows[headerRowIdx] || []).map(toStringValue)
+  const rows = rawRows.slice(headerRowIdx + 1)
+
+  const nameIdx = detectNameColumn(headers, rows)
+  const monthIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.month)
+  const yearIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.year)
+  const dateIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.date)
+  const unitIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.unit)
+  const typeIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.type)
+  const notesIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.notes)
+
+  const excluded = new Set<number>([nameIdx, monthIdx, yearIdx, dateIdx].filter(idx => idx >= 0))
+  const qtyIdx = detectNumericColumn(headers, rows, excluded)
+
+  const periodColumns = headers
+    .map((header, idx) => ({ idx, period: parsePeriodFromHeader(header) }))
+    .filter(item => item.period && item.idx !== nameIdx)
+
+  if (nameIdx === -1) {
+    errors.push(`Sheet ${sheetName}: tidak dapat mendeteksi kolom nama`) 
+    return { data, headers, errors }
+  }
+
+  // Wide format: satu baris obat, banyak kolom periode
+  if (periodColumns.length >= 2) {
+    for (const row of rows) {
+      const name = toStringValue(row?.[nameIdx])
+      if (!name) continue
+
+      for (const col of periodColumns) {
+        const quantity = parseNumber(row?.[col.idx])
+        if (quantity === null) continue
+
+        const period = col.period!
+        const master = masterMap.get(name.toLowerCase())
+        data.push({
+          name,
+          quantity: Math.max(0, Math.round(quantity)),
+          date: new Date(period.year, period.month - 1, 1),
+          month: period.month,
+          year: period.year,
+          unit: toStringValue(row?.[unitIdx]) || master?.unit || undefined,
+          type: toStringValue(row?.[typeIdx]) || master?.category || undefined,
+          notes: toStringValue(row?.[notesIdx]) || undefined
+        })
+      }
+    }
+
+    return { data, headers, errors }
+  }
+
+  if (qtyIdx === -1) {
+    errors.push(`Sheet ${sheetName}: tidak dapat mendeteksi kolom jumlah`) 
+    return { data, headers, errors }
+  }
+
+  for (const row of rows) {
+    const name = toStringValue(row?.[nameIdx])
+    if (!name) continue
+
+    const quantityValue = parseNumber(row?.[qtyIdx])
+    if (quantityValue === null || quantityValue < 0) continue
+
+    const master = masterMap.get(name.toLowerCase())
+
+    let month = 0
+    let year = 0
+    let date = new Date()
+
+    if (dateIdx !== -1) {
+      const parsedDate = parseDate(row?.[dateIdx])
+      if (parsedDate) {
+        month = parsedDate.month
+        year = parsedDate.year
+        date = parsedDate.date
+      }
+    }
+
+    if (!month && monthIdx !== -1) {
+      const parsedMonth = parseNumber(row?.[monthIdx])
+      if (parsedMonth) month = Math.max(1, Math.min(12, Math.round(parsedMonth)))
+    }
+
+    if (!year && yearIdx !== -1) {
+      const parsedYear = parseNumber(row?.[yearIdx])
+      if (parsedYear) year = Math.round(parsedYear)
+    }
+
+    if (!year) year = new Date().getFullYear()
+    if (!month) month = 6
+    date = new Date(year, month - 1, 1)
+
+    data.push({
+      name,
+      quantity: Math.round(quantityValue),
+      date,
+      month,
+      year,
+      unit: toStringValue(row?.[unitIdx]) || master?.unit || undefined,
+      type: toStringValue(row?.[typeIdx]) || master?.category || undefined,
+      notes: toStringValue(row?.[notesIdx]) || undefined
+    })
+  }
+
+  return { data, headers, errors }
+}
+
 export function parseExcelFile(buffer: ArrayBuffer): {
   data: ParsedMedicineData[]
   errors: string[]
@@ -151,164 +425,63 @@ export function parseExcelFile(buffer: ArrayBuffer): {
   let headers: string[] = []
   let masterData: { name: string; category?: string; stock?: number; unit?: string }[] = []
 
-  // ============================================
-  // STEP 1: Cari sheet "pemakaian" untuk data historis
-  // ============================================
-  const pemakaianSheetNames = ['pemakaian', 'usage', 'history', 'riwayat', 'historical']
-  let pemakaianSheet: XLSX.WorkSheet | null = null
-  let pemakaianSheetName = ''
-  
-  for (const name of workbook.SheetNames) {
-    if (pemakaianSheetNames.some(p => name.toLowerCase().includes(p))) {
-      pemakaianSheet = workbook.Sheets[name]
-      pemakaianSheetName = name
-      break
+  // Parse candidate master sheets first
+  const masterSheetNames = ['obat', 'medicine', 'master', 'daftar', 'list']
+  for (const sheetName of workbook.SheetNames) {
+    if (!masterSheetNames.some(key => sheetName.toLowerCase().includes(key))) {
+      continue
+    }
+
+    const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, defval: null }) as any[][]
+    if (rawRows.length < 2) continue
+
+    const headerRowIdx = findHeaderRow(rawRows)
+    const rowHeaders = (rawRows[headerRowIdx] || []).map(toStringValue)
+    const nameIdx = findMatchingColumn(rowHeaders, COLUMN_MAPPINGS.name)
+    const stockIdx = findMatchingColumn(rowHeaders, ['stok', 'stock', 'jumlah'])
+    const unitIdx = findMatchingColumn(rowHeaders, COLUMN_MAPPINGS.unit)
+    const categoryIdx = findMatchingColumn(rowHeaders, ['kategori', 'category', 'jenis', 'tipe', 'type'])
+
+    if (nameIdx === -1) continue
+
+    for (const row of rawRows.slice(headerRowIdx + 1)) {
+      const name = toStringValue(row?.[nameIdx])
+      if (!name) continue
+
+      const stock = stockIdx !== -1 ? parseNumber(row?.[stockIdx]) : null
+      masterData.push({
+        name,
+        category: categoryIdx !== -1 ? toStringValue(row?.[categoryIdx]) || undefined : undefined,
+        stock: stock !== null ? Math.round(stock) : undefined,
+        unit: unitIdx !== -1 ? toStringValue(row?.[unitIdx]) || undefined : undefined
+      })
     }
   }
 
-  // ============================================
-  // STEP 2: Cari sheet "obat" untuk data master
-  // ============================================
-  const obatSheetNames = ['obat', 'medicine', 'master', 'daftar', 'list']
-  let obatSheet: XLSX.WorkSheet | null = null
-  
-  for (const name of workbook.SheetNames) {
-    if (obatSheetNames.some(o => name.toLowerCase().includes(o))) {
-      obatSheet = workbook.Sheets[name]
-      break
+  const masterMap = new Map<string, { category?: string; stock?: number; unit?: string }>()
+  for (const item of masterData) {
+    masterMap.set(item.name.toLowerCase(), {
+      category: item.category,
+      stock: item.stock,
+      unit: item.unit
+    })
+  }
+
+  // Parse all sheets as potential usage data
+  for (const sheetName of workbook.SheetNames) {
+    const parsed = parseUsageSheet(workbook.Sheets[sheetName], sheetName, masterMap)
+    if (parsed.headers.length > 0 && headers.length === 0) {
+      headers = parsed.headers
+    }
+    if (parsed.data.length > 0) {
+      data.push(...parsed.data)
+    }
+    if (parsed.errors.length > 0) {
+      errors.push(...parsed.errors)
     }
   }
 
-  // Jika tidak ada sheet spesifik, gunakan sheet pertama
-  if (!pemakaianSheet && !obatSheet) {
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-    // Cek apakah sheet pertama punya kolom tahun (berarti data pemakaian)
-    const rawFirst = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][]
-    if (rawFirst.length > 0) {
-      const firstHeaders = rawFirst[0].map(h => String(h || '').toLowerCase())
-      if (firstHeaders.some(h => h.includes('tahun') || h.includes('year'))) {
-        pemakaianSheet = firstSheet
-      } else {
-        obatSheet = firstSheet
-      }
-    }
-  }
-
-  // ============================================
-  // STEP 3: Parse sheet master obat (jika ada)
-  // ============================================
-  if (obatSheet) {
-    const rawObat = XLSX.utils.sheet_to_json(obatSheet, { header: 1, raw: false }) as any[][]
-    
-    if (rawObat.length >= 2) {
-      const obatHeaders = rawObat[0].map(h => String(h || '').trim())
-      const nameIdx = findMatchingColumn(obatHeaders, COLUMN_MAPPINGS.name)
-      const stockIdx = findMatchingColumn(obatHeaders, ['stok', 'stock', 'jumlah'])
-      const unitIdx = findMatchingColumn(obatHeaders, COLUMN_MAPPINGS.unit)
-      const categoryIdx = findMatchingColumn(obatHeaders, ['kategori', 'category', 'jenis', 'tipe', 'type'])
-      
-      if (nameIdx !== -1) {
-        for (let i = 1; i < rawObat.length; i++) {
-          const row = rawObat[i]
-          if (!row || !row[nameIdx]) continue
-          
-          masterData.push({
-            name: row[nameIdx]?.toString().trim(),
-            category: categoryIdx !== -1 ? row[categoryIdx]?.toString() : undefined,
-            stock: stockIdx !== -1 ? parseInt(row[stockIdx]) || 0 : undefined,
-            unit: unitIdx !== -1 ? row[unitIdx]?.toString() : undefined
-          })
-        }
-      }
-    }
-  }
-
-  // ============================================
-  // STEP 4: Parse sheet pemakaian (DATA UTAMA UNTUK PREDIKSI)
-  // ============================================
-  if (pemakaianSheet) {
-    const rawData = XLSX.utils.sheet_to_json(pemakaianSheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' }) as any[][]
-    
-    if (rawData.length < 2) {
-      errors.push('Sheet pemakaian kosong atau tidak memiliki data')
-    } else {
-      headers = rawData[0].map(h => String(h || '').trim())
-
-      // Find column indices
-      const nameIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.name)
-      const qtyIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.quantity)
-      const dateIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.date)
-      const monthIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.month)
-      const yearIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.year)
-      const unitIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.unit)
-      const typeIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.type)
-      const notesIdx = findMatchingColumn(headers, COLUMN_MAPPINGS.notes)
-
-      if (nameIdx === -1) {
-        errors.push('Tidak dapat menemukan kolom nama obat di sheet pemakaian')
-      } else if (qtyIdx === -1) {
-        errors.push('Tidak dapat menemukan kolom jumlah pemakaian')
-      } else {
-        // Parse data rows
-        for (let i = 1; i < rawData.length; i++) {
-          const row = rawData[i]
-          if (!row || row.length === 0) continue
-
-          const name = row[nameIdx]?.toString().trim()
-          if (!name) continue
-
-          const quantity = parseInt(row[qtyIdx]) || 0
-          if (quantity < 0) continue
-
-          let dateInfo: { date: Date; month: number; year: number }
-
-          // Data pemakaian biasanya punya kolom tahun
-          if (yearIdx !== -1) {
-            const year = parseInt(row[yearIdx]) || new Date().getFullYear()
-            const month = monthIdx !== -1 ? (parseInt(row[monthIdx]) || 6) : 6 // Default tengah tahun
-            dateInfo = { date: new Date(year, month - 1, 1), month, year }
-          }
-          // Atau kolom tanggal
-          else if (dateIdx !== -1) {
-            const parsed = parseDate(row[dateIdx])
-            if (parsed) {
-              dateInfo = parsed
-            } else {
-              const now = new Date()
-              dateInfo = { date: now, month: now.getMonth() + 1, year: now.getFullYear() }
-            }
-          }
-          // Default
-          else {
-            const now = new Date()
-            dateInfo = { date: now, month: now.getMonth() + 1, year: now.getFullYear() }
-          }
-
-          // Cari unit dari master data jika tidak ada di pemakaian
-          let unit = unitIdx !== -1 ? row[unitIdx]?.toString() : undefined
-          if (!unit) {
-            const master = masterData.find(m => m.name.toLowerCase() === name.toLowerCase())
-            unit = master?.unit
-          }
-
-          data.push({
-            name,
-            quantity,
-            date: dateInfo.date,
-            month: dateInfo.month,
-            year: dateInfo.year,
-            unit,
-            type: typeIdx !== -1 ? row[typeIdx]?.toString() : undefined,
-            notes: notesIdx !== -1 ? row[notesIdx]?.toString() : undefined
-          })
-        }
-      }
-    }
-  }
-
-  // ============================================
-  // STEP 5: Jika tidak ada data pemakaian, gunakan data master
-  // ============================================
+  // Jika tidak ada data pemakaian, gunakan data master
   if (data.length === 0 && masterData.length > 0) {
     const now = new Date()
     for (const med of masterData) {
@@ -319,12 +492,16 @@ export function parseExcelFile(buffer: ArrayBuffer): {
           date: now,
           month: now.getMonth() + 1,
           year: now.getFullYear(),
-          unit: med.unit,
+          unit: med.unit || DEFAULT_UNIT,
           type: med.category
         })
       }
     }
-    errors.push('Menggunakan data stok dari sheet obat karena sheet pemakaian tidak ditemukan')
+    errors.push('Menggunakan data stok dari sheet master karena data pemakaian tidak ditemukan')
+  }
+
+  if (data.length === 0) {
+    errors.push('Tidak ditemukan data yang bisa dipetakan ke format nama + jumlah di workbook ini')
   }
 
   return { data, errors, headers, masterData }

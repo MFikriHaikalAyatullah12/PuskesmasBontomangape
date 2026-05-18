@@ -7,8 +7,8 @@ import AuthProvider from '@/components/AuthProvider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PUSKESMAS BONTOMANGAPE - Sistem Prediksi Kebutuhan Obat',
-  description: 'Sistem prediksi kebutuhan obat menggunakan AI untuk PUSKESMAS BONTOMANGAPE',
+  title: 'UPT PUSKESMAS SUKAMAJU, LUWU UTARA - Sistem Prediksi Kebutuhan Obat',
+  description: 'Sistem prediksi kebutuhan obat menggunakan AI untuk UPT PUSKESMAS SUKAMAJU, LUWU UTARA',
   icons: {
     icon: '/favicon.ico',
   },

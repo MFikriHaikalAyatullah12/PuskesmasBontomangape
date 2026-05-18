@@ -79,8 +79,8 @@ export default function LoginPage() {
               <FiActivity className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800 tracking-tight">PUSKESMAS</h1>
-              <p className="text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">BONTOMANGAPE</p>
+              <h1 className="text-xl font-bold text-gray-800 tracking-tight">UPT PUSKESMAS SUKAMAJU</h1>
+              <p className="text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">LUWU UTARA</p>
             </div>
           </div>
 
@@ -134,7 +134,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25 mb-3">
               <FiActivity className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-gray-800">PUSKESMAS BONTOMANGAPE</h1>
+            <h1 className="text-lg font-bold text-gray-800">UPT PUSKESMAS SUKAMAJU, LUWU UTARA</h1>
             <p className="text-gray-500 text-sm mt-1">Sistem Prediksi Kebutuhan Obat</p>
           </div>
 
@@ -231,13 +231,13 @@ export default function LoginPage() {
 
             {/* Address */}
             <div className="text-center mt-4">
-              <p className="text-sm text-gray-500">Bontorita, Desa Bontomangape, Kec. Galesong</p>
+              <p className="text-sm text-gray-500">UPT Puskesmas Sukamaju, Kabupaten Luwu Utara</p>
             </div>
           </div>
 
           {/* Footer */}
           <p className="text-center text-gray-400 text-sm mt-4">
-            © 2026 PUSKESMAS BONTOMANGAPE
+            © 2026 UPT PUSKESMAS SUKAMAJU, LUWU UTARA
           </p>
         </div>
       </div>

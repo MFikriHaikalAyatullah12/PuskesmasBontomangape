@@ -51,6 +51,10 @@ interface PredictionResult {
   }[]
   linearRegressionAccuracy: number
   movingAveragetrend: 'up' | 'down' | 'stable'
+  evaluation: {
+    linearRegression: { mae: number; mse: number; rmse: number }
+    movingAverage: { mae: number; mse: number; rmse: number }
+  }
 }
 
 export default function PredictionPage() {
@@ -127,6 +131,12 @@ export default function PredictionPage() {
         'Rata-rata Prediksi LR': avgLR,
         'Rata-rata Prediksi MA': avgMA,
         'Akurasi LR (%)': (pred.linearRegressionAccuracy * 100).toFixed(1),
+        'LR MAE': pred.evaluation?.linearRegression?.mae ?? 0,
+        'LR MSE': pred.evaluation?.linearRegression?.mse ?? 0,
+        'LR RMSE': pred.evaluation?.linearRegression?.rmse ?? 0,
+        'MA MAE': pred.evaluation?.movingAverage?.mae ?? 0,
+        'MA MSE': pred.evaluation?.movingAverage?.mse ?? 0,
+        'MA RMSE': pred.evaluation?.movingAverage?.rmse ?? 0,
         'Tren MA': pred.movingAveragetrend === 'up' ? 'Naik' : pred.movingAveragetrend === 'down' ? 'Turun' : 'Stabil'
       }
     })
@@ -207,7 +217,7 @@ export default function PredictionPage() {
 
     // Download
     const today = new Date().toISOString().split('T')[0]
-    XLSX.writeFile(wb, `Prediksi_Obat_Puskesmas_${today}.xlsx`)
+    XLSX.writeFile(wb, `Prediksi_Obat_UPT_Puskesmas_Sukamaju_${today}.xlsx`)
     toast.success('File Excel berhasil didownload!')
   }
 
@@ -471,7 +481,7 @@ export default function PredictionPage() {
           {selectedPrediction && (
             <>
               {/* Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                   <p className="text-sm text-gray-500">Stok Saat Ini</p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
@@ -499,6 +509,43 @@ export default function PredictionPage() {
                       ? '↓ Turun'
                       : '→ Stabil'}
                   </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-blue-100">
+                  <p className="text-sm font-semibold text-blue-700">Evaluasi Linear Regression</p>
+                  <div className="grid grid-cols-3 gap-3 mt-3 text-sm">
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <p className="text-gray-500">MAE</p>
+                      <p className="text-lg font-bold text-blue-700">{selectedPrediction.evaluation?.linearRegression?.mae ?? 0}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <p className="text-gray-500">MSE</p>
+                      <p className="text-lg font-bold text-blue-700">{selectedPrediction.evaluation?.linearRegression?.mse ?? 0}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <p className="text-gray-500">RMSE</p>
+                      <p className="text-lg font-bold text-blue-700">{selectedPrediction.evaluation?.linearRegression?.rmse ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
+                  <p className="text-sm font-semibold text-purple-700">Evaluasi Moving Average</p>
+                  <div className="grid grid-cols-3 gap-3 mt-3 text-sm">
+                    <div className="bg-purple-50 rounded-lg p-3">
+                      <p className="text-gray-500">MAE</p>
+                      <p className="text-lg font-bold text-purple-700">{selectedPrediction.evaluation?.movingAverage?.mae ?? 0}</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-3">
+                      <p className="text-gray-500">MSE</p>
+                      <p className="text-lg font-bold text-purple-700">{selectedPrediction.evaluation?.movingAverage?.mse ?? 0}</p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-3">
+                      <p className="text-gray-500">RMSE</p>
+                      <p className="text-lg font-bold text-purple-700">{selectedPrediction.evaluation?.movingAverage?.rmse ?? 0}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 

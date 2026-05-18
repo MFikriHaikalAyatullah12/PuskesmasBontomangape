@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     if (result.data.length === 0) {
       return NextResponse.json({ 
-        error: 'Tidak ada data valid dalam file. Pastikan file Excel memiliki sheet "pemakaian" dengan kolom nama_obat, tahun, dan jumlah_pemakaian.',
+        error: 'Tidak ada data valid dalam file. Pastikan ada kolom nama item dan nilai jumlah pada salah satu sheet.',
         errors: result.errors 
       }, { status: 400 })
     }
@@ -76,91 +76,66 @@ export async function POST(req: Request) {
 
     const errors: string[] = [...result.errors]
 
-    // ========== OPTIMIZED FAST IMPORT ==========
-    
-    // Step 1: Get all existing medicines in ONE query
-    const existingMedicines = await prisma.medicine.findMany({
+    // ========== FAST REPLACE IMPORT ==========
+    // Strategi: replace semua data user agar proses konsisten dan cepat.
+    const medicinesToCreate: {
+      key: string
+      name: string
+      unit: string
+      currentStock: number
+      minStock: number
+      maxStock: number
+    }[] = []
+
+    for (const [key, data] of medicineMap) {
+      let latestHistory = data.histories[0]
+      for (const h of data.histories) {
+        if (!latestHistory || h.year > latestHistory.year || (h.year === latestHistory.year && h.month > latestHistory.month)) {
+          latestHistory = h
+        }
+      }
+
+      const latestStock = data.currentStock || latestHistory?.quantity || 0
+      medicinesToCreate.push({
+        key,
+        name: data.name,
+        unit: data.unit,
+        currentStock: latestStock,
+        minStock: Math.round(latestStock * 0.2) || 10,
+        maxStock: Math.round(latestStock * 2) || 100
+      })
+    }
+
+    await prisma.$transaction([
+      prisma.prediction.deleteMany({ where: { userId } }),
+      prisma.stockHistory.deleteMany({ where: { userId } }),
+      prisma.medicine.deleteMany({ where: { userId } })
+    ])
+
+    if (medicinesToCreate.length > 0) {
+      await prisma.medicine.createMany({
+        data: medicinesToCreate.map(m => ({
+          name: m.name,
+          unit: m.unit,
+          currentStock: m.currentStock,
+          minStock: m.minStock,
+          maxStock: m.maxStock,
+          userId
+        }))
+      })
+    }
+
+    const insertedMedicines = await prisma.medicine.findMany({
       where: { userId },
       select: { id: true, name: true }
     })
-    
-    const existingMap = new Map<string, string>()
-    for (const med of existingMedicines) {
-      existingMap.set(med.name.toLowerCase().trim(), med.id)
+
+    const medicineIds = new Map<string, string>()
+    for (const med of insertedMedicines) {
+      medicineIds.set(med.name.toLowerCase().trim(), med.id)
     }
 
-    // Step 2: Separate new and existing medicines
-    const newMedicines: any[] = []
-    const updateMedicines: { id: string; data: any }[] = []
-    const medicineIds = new Map<string, string>() // key -> medicineId
-    
-    for (const [key, data] of medicineMap) {
-      const sortedHistories = data.histories.sort((a, b) => {
-        if (a.year !== b.year) return b.year - a.year
-        return b.month - a.month
-      })
-      const latestStock = data.currentStock || sortedHistories[0]?.quantity || 0
-      
-      const existingId = existingMap.get(key)
-      
-      if (existingId) {
-        medicineIds.set(key, existingId)
-        updateMedicines.push({
-          id: existingId,
-          data: { currentStock: latestStock, unit: data.unit }
-        })
-      } else {
-        newMedicines.push({
-          key,
-          data: {
-            name: data.name,
-            unit: data.unit,
-            currentStock: latestStock,
-            minStock: Math.round(latestStock * 0.2) || 10,
-            maxStock: Math.round(latestStock * 2) || 100,
-            userId
-          }
-        })
-      }
-    }
-
-    // Step 3: Batch create new medicines
-    if (newMedicines.length > 0) {
-      await prisma.medicine.createMany({
-        data: newMedicines.map(m => m.data),
-        skipDuplicates: true
-      })
-      
-      // Get IDs of newly created medicines
-      const createdMedicines = await prisma.medicine.findMany({
-        where: { 
-          userId,
-          name: { in: newMedicines.map(m => m.data.name) }
-        },
-        select: { id: true, name: true }
-      })
-      
-      for (const med of createdMedicines) {
-        medicineIds.set(med.name.toLowerCase().trim(), med.id)
-      }
-    }
-
-    // Step 4: Batch update existing medicines (parallel)
-    if (updateMedicines.length > 0) {
-      await Promise.all(
-        updateMedicines.map(u => 
-          prisma.medicine.update({ where: { id: u.id }, data: u.data })
-        )
-      )
-      
-      // Delete old histories for existing medicines
-      const existingIds = updateMedicines.map(u => u.id)
-      await prisma.stockHistory.deleteMany({
-        where: { medicineId: { in: existingIds } }
-      })
-    }
-
-    // Step 5: Batch create ALL stock histories at once
+    // Batch create all stock histories
     const allHistories: any[] = []
     
     for (const [key, data] of medicineMap) {
@@ -180,8 +155,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Insert histories in large batches (500 at a time)
-    const BATCH_SIZE = 500
+    // Insert histories in large batches
+    const BATCH_SIZE = 2000
     for (let i = 0; i < allHistories.length; i += BATCH_SIZE) {
       const batch = allHistories.slice(i, i + BATCH_SIZE)
       await prisma.stockHistory.createMany({ data: batch })

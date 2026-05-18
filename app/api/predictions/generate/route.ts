@@ -5,6 +5,8 @@ import prisma from '@/lib/prisma'
 import {
   predictLinearRegression,
   predictMovingAverage,
+  evaluateLinearRegression,
+  evaluateMovingAverage,
   aggregateToQuarterly,
   generateFutureQuarters
 } from '@/lib/prediction'
@@ -41,11 +43,14 @@ export async function POST() {
     })
 
     let generatedCount = 0
+    let skippedNoHistory = 0
     const allPredictions: any[] = []
+    const evaluations: any[] = []
 
     for (const medicine of medicines) {
       // Allow even single data point
       if (medicine.stockHistories.length < 1) {
+        skippedNoHistory++
         continue
       }
 
@@ -58,6 +63,7 @@ export async function POST() {
       const quarterlyData = aggregateToQuarterly(monthlyData)
 
       if (quarterlyData.length < 1) {
+        skippedNoHistory++
         continue
       }
 
@@ -73,10 +79,12 @@ export async function POST() {
       
       // Linear Regression (OLS): ŷ = mx + b
       const lrResult = predictLinearRegression(dataPoints, futureX)
+      const lrEvaluation = evaluateLinearRegression(dataPoints)
       
       // Moving Average (Holt's Linear Trend): Fₜ₊ₖ = Lₜ + k × Tₜ
       const values = quarterlyData.map(q => q.value)
       const maResult = predictMovingAverage(values, 8, 3)
+      const maEvaluation = evaluateMovingAverage(values, 3)
 
       // Prepare batch data
       for (let i = 0; i < futureQuarters.length; i++) {
@@ -103,7 +111,24 @@ export async function POST() {
         })
       }
 
+      evaluations.push({
+        medicineId: medicine.id,
+        medicineName: medicine.name,
+        linearRegression: lrEvaluation,
+        movingAverage: maEvaluation
+      })
+
       generatedCount++
+    }
+
+    if (allPredictions.length === 0) {
+      return NextResponse.json({
+        error: 'Prediksi tidak dapat dibuat karena data histori obat belum tersedia atau belum valid. Import data terlebih dahulu.',
+        details: {
+          totalMedicines: medicines.length,
+          skippedNoHistory
+        }
+      }, { status: 400 })
     }
 
     // Batch insert all predictions at once
@@ -115,7 +140,8 @@ export async function POST() {
 
     return NextResponse.json({
       count: generatedCount,
-      message: `Berhasil generate prediksi untuk ${generatedCount} obat`
+      message: `Berhasil generate prediksi untuk ${generatedCount} obat`,
+      evaluations
     })
   } catch (error) {
     console.error('Error generating predictions:', error)

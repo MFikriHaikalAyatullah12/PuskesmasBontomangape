@@ -57,7 +57,7 @@ export default function Sidebar({ notifications }: SidebarProps) {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <FiActivity className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold text-gray-800">PUSKESMAS</span>
+            <span className="font-semibold text-gray-800">UPT PUSKESMAS SUKAMAJU</span>
           </div>
         </div>
         
@@ -97,8 +97,8 @@ export default function Sidebar({ notifications }: SidebarProps) {
                 <FiActivity className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-gray-800 text-base">PUSKESMAS</h1>
-                <p className="text-xs text-gray-500">BONTOMANGAPE</p>
+                <h1 className="font-bold text-gray-800 text-base">UPT PUSKESMAS SUKAMAJU</h1>
+                <p className="text-xs text-gray-500">LUWU UTARA</p>
               </div>
             </div>
           </div>
