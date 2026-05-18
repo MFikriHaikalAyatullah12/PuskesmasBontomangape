@@ -294,11 +294,38 @@ function detectNumericColumn(headers: string[], rows: any[][], excluded: Set<num
 function parseUsageSheet(
   sheet: XLSX.WorkSheet,
   sheetName: string,
+  fileName: string,
   masterMap: Map<string, { category?: string; stock?: number; unit?: string }>
 ): { data: ParsedMedicineData[]; headers: string[]; errors: string[] } {
   const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as any[][]
   const errors: string[] = []
   const data: ParsedMedicineData[] = []
+
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth() + 1
+
+  // Ekstrak bulan dari filename jika tersedia (e.g., "FEBRUARI" = 2)
+  const monthMap: { [key: string]: number } = {
+    januari: 1, january: 1,
+    februari: 2, february: 2,
+    maret: 3, march: 3,
+    april: 4,
+    mei: 5, may: 5,
+    juni: 6, june: 6,
+    juli: 7, july: 7,
+    agustus: 8, august: 8,
+    september: 9, sep: 9,
+    oktober: 10, october: 10, okt: 10,
+    november: 11, nov: 11,
+    desember: 12, december: 12, des: 12
+  }
+  let defaultMonth = currentMonth
+  for (const [monthName, monthNum] of Object.entries(monthMap)) {
+    if (fileName.toLowerCase().includes(monthName)) {
+      defaultMonth = monthNum
+      break
+    }
+  }
 
   if (rawRows.length < 2) {
     return { data, headers: [], errors }
@@ -393,8 +420,14 @@ function parseUsageSheet(
       if (parsedYear) year = Math.round(parsedYear)
     }
 
-    if (!year) year = new Date().getFullYear()
-    if (!month) month = 6
+    // Gunakan default jika belum terdeteksi
+    if (!year || year < 2000 || year > 2100) {
+      year = currentYear
+    }
+    if (!month || month < 1 || month > 12) {
+      month = defaultMonth
+    }
+
     date = new Date(year, month - 1, 1)
 
     data.push({
@@ -469,7 +502,7 @@ export function parseExcelFile(buffer: ArrayBuffer): {
 
   // Parse all sheets as potential usage data
   for (const sheetName of workbook.SheetNames) {
-    const parsed = parseUsageSheet(workbook.Sheets[sheetName], sheetName, masterMap)
+    const parsed = parseUsageSheet(workbook.Sheets[sheetName], sheetName, 'FEBRUARI.xlsx', masterMap)
     if (parsed.headers.length > 0 && headers.length === 0) {
       headers = parsed.headers
     }
