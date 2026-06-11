@@ -3,7 +3,7 @@ PUSKESMAS BONTOMANGAPE - Medicine Stock Prediction using Machine Learning
 
 This Python script provides advanced prediction capabilities using:
 1. Linear Regression (scikit-learn)
-2. Moving Average
+2. Weighted Moving Average
 
 Usage:
   python ml_prediction.py --data <json_file> --output <output_file>
@@ -98,12 +98,12 @@ def linear_regression_predict(data: List[Dict], future_periods: int = 8) -> Dict
 
 def moving_average_predict(data: List[Dict], future_periods: int = 8, window: int = 3) -> Dict:
     """
-    Predict future values using Moving Average
+    Predict future values using Weighted Moving Average
     
     Args:
         data: List of {period: int, value: float}
         future_periods: Number of periods to predict
-        window: Window size for moving average
+        window: Window size for weighted moving average
     
     Returns:
         Dict with predictions and trend
@@ -114,45 +114,74 @@ def moving_average_predict(data: List[Dict], future_periods: int = 8, window: in
         return {
             "predictions": [0] * future_periods,
             "trend": "stable",
-            "method": "moving_average"
+            "method": "weighted_moving_average"
         }
     
-    # Calculate moving average
+    # Calculate weighted moving average
     ma_values = []
     for i in range(len(values)):
         start_idx = max(0, i - window + 1)
         window_values = values[start_idx:i + 1]
-        ma_values.append(sum(window_values) / len(window_values))
+        # Generate weights: [1, 2, 3, ...] - higher weight for more recent values
+        weights = list(range(1, len(window_values) + 1))
+        weighted_sum = sum(w * v for w, v in zip(weights, window_values))
+        weight_total = sum(weights)
+        ma_values.append(weighted_sum / weight_total)
     
-    # Determine trend
-    if len(ma_values) >= 2:
-        trend_diff = ma_values[-1] - ma_values[-2]
-        avg_value = sum(values) / len(values)
-        trend_percent = (trend_diff / avg_value * 100) if avg_value > 0 else 0
-        
-        if trend_percent > 5:
-            trend = "up"
-        elif trend_percent < -5:
-            trend = "down"
-        else:
-            trend = "stable"
+    # Calculate average growth rate from recent WMA values (more robust)
+    if len(ma_values) >= 3:
+        # Use average of last (window) growth rates for more stable forecasting
+        recent_diffs = []
+        lookback = min(window, len(ma_values) - 1)
+        for i in range(1, lookback + 1):
+            recent_diffs.append(ma_values[-i] - ma_values[-i - 1])
+        avg_growth_rate = sum(recent_diffs) / len(recent_diffs)
+    elif len(ma_values) >= 2:
+        avg_growth_rate = ma_values[-1] - ma_values[-2]
+    else:
+        avg_growth_rate = 0
+    
+    # Determine trend based on average growth rate
+    avg_value = sum(values) / len(values) if values else 1
+    trend_percent = (avg_growth_rate / avg_value * 100) if avg_value > 0 else 0
+    
+    if trend_percent > 5:
+        trend = "up"
+    elif trend_percent < -5:
+        trend = "down"
     else:
         trend = "stable"
-        trend_diff = 0
     
-    # Generate predictions
+    # Generate predictions using WMA-based forecasting
     predictions = []
-    current_pred = ma_values[-1] if ma_values else values[-1] if values else 0
-    growth_rate = trend_diff if len(ma_values) >= 2 else 0
+    # Start from the last WMA value
+    last_wma = ma_values[-1] if ma_values else values[-1] if values else 0
+    
+    # Use a rolling window approach for predictions
+    recent_values = values[-(window):] if len(values) >= window else values[:]
     
     for _ in range(future_periods):
-        current_pred = current_pred + growth_rate
-        predictions.append(max(0, int(round(current_pred))))
+        # Calculate next predicted value using WMA on recent values
+        weights = list(range(1, len(recent_values) + 1))
+        weighted_sum = sum(w * v for w, v in zip(weights, recent_values))
+        weight_total = sum(weights)
+        next_pred = weighted_sum / weight_total
+        
+        # Add growth factor for trend continuation
+        next_pred += avg_growth_rate
+        next_pred = max(0, next_pred)
+        
+        predictions.append(int(round(next_pred)))
+        
+        # Update recent values for next iteration (rolling window)
+        recent_values = recent_values[1:] + [next_pred] if len(recent_values) >= window else recent_values + [next_pred]
+        if len(recent_values) > window:
+            recent_values = recent_values[-window:]
     
     return {
         "predictions": predictions,
         "trend": trend,
-        "method": "moving_average"
+        "method": "weighted_moving_average"
     }
 
 
