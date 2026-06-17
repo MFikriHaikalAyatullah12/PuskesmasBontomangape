@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import dynamic from 'next/dynamic'
+import useSWR from 'swr'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -59,44 +60,21 @@ interface PredictionData {
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const [medicines, setMedicines] = useState<Medicine[]>([])
-  const [predictions, setPredictions] = useState<PredictionData[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedMedicine, setSelectedMedicine] = useState<string>('all')
-  const [refreshing, setRefreshing] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [medRes, predRes] = await Promise.all([
-        fetch('/api/medicines'),
-        fetch('/api/predictions/summary')
-      ])
+  // Use SWR for data fetching with caching
+  const { data: medData, isLoading: medLoading, mutate: mutateMedicines } = useSWR<{ medicines: Medicine[] }>('/api/medicines')
+  const { data: predData, isLoading: predLoading, mutate: mutatePredictions } = useSWR<{ predictions: PredictionData[] }>('/api/predictions/summary')
 
-      if (medRes.ok) {
-        const medData = await medRes.json()
-        setMedicines(medData.medicines || [])
-      }
-
-      if (predRes.ok) {
-        const predData = await predRes.json()
-        setPredictions(predData.predictions || [])
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const medicines: Medicine[] = medData?.medicines || []
+  const predictions: PredictionData[] = predData?.predictions || []
+  const loading = medLoading || predLoading
 
   const handleRefresh = async () => {
-    setRefreshing(true)
-    await fetchData()
+    toast.loading('Memperbarui data...')
+    await Promise.all([mutateMedicines(), mutatePredictions()])
+    toast.dismiss()
     toast.success('Data berhasil diperbarui')
-    setRefreshing(false)
   }
 
   const safeCount = medicines.filter(m => m.status.status === 'safe').length
@@ -308,10 +286,10 @@ export default function DashboardPage() {
         </div>
         <button
           onClick={handleRefresh}
-          disabled={refreshing}
+          disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-all disabled:opacity-50"
         >
-          <FiRefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+          <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
         </button>
       </div>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import useSWR from 'swr'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -71,31 +72,19 @@ interface PredictionResult {
 }
 
 export default function PredictionPage() {
-  const [predictions, setPredictions] = useState<PredictionResult[]>([])
-  const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [selectedMedicine, setSelectedMedicine] = useState<string>('')
 
-  const fetchPredictions = useCallback(async () => {
-    try {
-      const res = await fetch('/api/predictions')
-      if (res.ok) {
-        const data = await res.json()
-        setPredictions(data.predictions || [])
-        if (data.predictions?.length > 0 && !selectedMedicine) {
-          setSelectedMedicine(data.predictions[0].medicineId)
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching predictions:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedMedicine])
+  // Use SWR for data fetching with caching
+  const { data, isLoading: loading, mutate } = useSWR<{ predictions: PredictionResult[] }>('/api/predictions')
+  const predictions: PredictionResult[] = data?.predictions || []
 
+  // Set initial selected medicine when data loads
   useEffect(() => {
-    fetchPredictions()
-  }, [fetchPredictions])
+    if (predictions.length > 0 && !selectedMedicine) {
+      setSelectedMedicine(predictions[0].medicineId)
+    }
+  }, [predictions, selectedMedicine])
 
   const handleGeneratePredictions = async () => {
     try {
@@ -111,7 +100,7 @@ export default function PredictionPage() {
       }
 
       toast.success(`Berhasil generate prediksi untuk ${data.count} obat`)
-      fetchPredictions()
+      mutate() // Refresh data using SWR
     } catch (error: any) {
       toast.error(error.message)
     } finally {

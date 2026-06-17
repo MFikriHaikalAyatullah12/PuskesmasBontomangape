@@ -27,6 +27,111 @@ except ImportError:
     print("Warning: scikit-learn not installed. Using basic linear regression.")
 
 
+def calculate_error_metrics(actual: List[float], predicted: List[float]) -> Dict:
+    """
+    Calculate MAE, MSE, and RMSE evaluation metrics
+    
+    Args:
+        actual: List of actual values
+        predicted: List of predicted values
+    
+    Returns:
+        Dict with mae, mse, rmse
+    """
+    if len(actual) == 0 or len(predicted) == 0 or len(actual) != len(predicted):
+        return {"mae": 0, "mse": 0, "rmse": 0}
+    
+    n = len(actual)
+    mae_total = 0
+    mse_total = 0
+    
+    for i in range(n):
+        error = actual[i] - predicted[i]
+        mae_total += abs(error)      # MAE: |error|
+        mse_total += error ** 2      # MSE: error²
+    
+    mae = mae_total / n
+    mse = mse_total / n
+    rmse = mse ** 0.5  # RMSE: √MSE
+    
+    return {
+        "mae": round(mae, 2),
+        "mse": round(mse, 2),
+        "rmse": round(rmse, 2)
+    }
+
+
+def evaluate_linear_regression_walk_forward(data: List[Dict]) -> Dict:
+    """
+    Evaluate Linear Regression using Walk-Forward Validation
+    Train on data[0:i], predict data[i], compare with actual
+    
+    Args:
+        data: List of {period: int, value: float}
+    
+    Returns:
+        Dict with mae, mse, rmse
+    """
+    if len(data) < 3:
+        return {"mae": 0, "mse": 0, "rmse": 0}
+    
+    actual = []
+    predicted = []
+    
+    for i in range(2, len(data)):
+        # Train on data up to index i
+        train_data = data[:i]
+        x_train = [d["period"] for d in train_data]
+        y_train = [d["value"] for d in train_data]
+        
+        # Calculate regression coefficients
+        slope, intercept, _ = basic_linear_regression(x_train, y_train)
+        
+        # Predict next value
+        next_pred = slope * data[i]["period"] + intercept
+        next_pred = max(0, next_pred)
+        
+        actual.append(data[i]["value"])
+        predicted.append(next_pred)
+    
+    return calculate_error_metrics(actual, predicted)
+
+
+def evaluate_wma_walk_forward(data: List[Dict], window: int = 3) -> Dict:
+    """
+    Evaluate Weighted Moving Average using Walk-Forward Validation
+    
+    Args:
+        data: List of {period: int, value: float}
+        window: Window size for WMA
+    
+    Returns:
+        Dict with mae, mse, rmse
+    """
+    values = [d["value"] for d in data]
+    
+    if len(values) < window + 1:
+        return {"mae": 0, "mse": 0, "rmse": 0}
+    
+    actual = []
+    predicted = []
+    
+    for i in range(window, len(values)):
+        # Get window of values before index i
+        window_values = values[i - window:i]
+        
+        # Calculate WMA
+        weights = list(range(1, len(window_values) + 1))
+        weighted_sum = sum(w * v for w, v in zip(weights, window_values))
+        weight_total = sum(weights)
+        wma_pred = weighted_sum / weight_total
+        
+        actual.append(values[i])
+        predicted.append(wma_pred)
+    
+    return calculate_error_metrics(actual, predicted)
+
+
 def basic_linear_regression(x: List[float], y: List[float]) -> Tuple[float, float, float]:
     """Basic linear regression without scikit-learn"""
     n = len(x)
@@ -89,10 +194,14 @@ def linear_regression_predict(data: List[Dict], future_periods: int = 8) -> Dict
         
         predictions = [slope * (len(data) + i) + intercept for i in range(future_periods)]
     
+    # Calculate evaluation metrics using walk-forward validation
+    evaluation = evaluate_linear_regression_walk_forward(data)
+    
     return {
         "predictions": [max(0, int(round(p))) for p in predictions],
         "confidence": float(max(0, confidence)),
-        "method": "linear_regression"
+        "method": "linear_regression",
+        "evaluation": evaluation
     }
 
 
@@ -178,10 +287,14 @@ def moving_average_predict(data: List[Dict], future_periods: int = 8, window: in
         if len(recent_values) > window:
             recent_values = recent_values[-window:]
     
+    # Calculate evaluation metrics using walk-forward validation
+    evaluation = evaluate_wma_walk_forward(data, window)
+    
     return {
         "predictions": predictions,
         "trend": trend,
-        "method": "weighted_moving_average"
+        "method": "weighted_moving_average",
+        "evaluation": evaluation
     }
 
 
